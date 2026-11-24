@@ -151,14 +151,14 @@ npm run electron:build    # installers for the current OS in release/
 |---|---|
 | macOS | `.dmg` + `.zip`, Apple Silicon and Intel |
 | Windows | NSIS installer `.exe` + `.zip` |
-| Linux | `.AppImage` + `.deb` |
+| Linux | `.AppImage` + `.deb` *(temporarily paused while the Linux smoke test is fixed)* |
 
 ### Automated desktop builds
 
 `.github/workflows/desktop.yml` builds every platform on GitHub:
 
-- **push to `main`** — macOS, Windows and Linux installers are uploaded as downloadable artifacts on
-  the run (Actions → *Build desktop apps*).
+- **push to `main`** — macOS and Windows installers are uploaded as downloadable artifacts on the run
+  (Actions → *Build desktop apps*).
 - **push a `v*` tag** — the same installers are attached to a GitHub Release.
 - **manual** — run *Build desktop apps* from the Actions tab.
 
