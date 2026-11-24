@@ -2,15 +2,26 @@
   "name": "tnsintl-tracker",
   "version": "1.0.0",
   "description": "TNSI Compass — static placement-desk demo for The Next Step International",
-  "main": "index.js",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:demo": "VITE_DEMO=1 VITE_BASE=/tnsintl-tracker/ vite build",
-    "preview": "vite preview"
+    "build:demo": "cross-env VITE_DEMO=1 VITE_BASE=/tnsintl-tracker/ vite build",
+    "build:desktop": "cross-env VITE_DEMO=1 VITE_BASE=./ vite build",
+    "preview": "vite preview",
+    "electron:dev": "concurrently -k -n vite,electron -c cyan,green \"cross-env VITE_DEMO=1 vite --port 5173 --strictPort\" \"wait-on tcp:127.0.0.1:5173 && cross-env ELECTRON_START_URL=http://localhost:5173 electron .\"",
+    "electron:start": "npm run build:desktop && electron .",
+    "electron:build": "npm run build:desktop && electron-builder",
+    "electron:build:dir": "npm run build:desktop && electron-builder --dir",
+    "electron:smoke": "cross-env ELECTRON_SMOKE_TEST=1 electron ."
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "electron",
+    "desktop",
+    "placement",
+    "tnsintl"
+  ],
+  "author": "The Next Step International",
   "license": "MIT",
   "type": "commonjs",
   "dependencies": {
@@ -23,8 +34,13 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "concurrently": "^10.0.7",
+    "cross-env": "^10.1.0",
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0",
     "typescript": "^7.0.2",
-    "vite": "^8.3.8"
+    "vite": "^8.3.8",
+    "wait-on": "^9.5.1"
   },
   "private": true
 }

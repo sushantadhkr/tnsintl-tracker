@@ -77,9 +77,8 @@ The demo is a **PWA**, so it can be installed without an app store:
 - **Android:** Chrome menu → **Add to Home screen**.
 - **iPhone / iPad:** Safari → Share → **Add to Home Screen**.
 
-This gives you the console as an installable app. The **desktop tracking agent** (Electron) is part of
-the full prototype and is not distributed from this public demo; a web page cannot observe or enforce
-job-board browsing on a device.
+This gives you the console as an installable app. Native installers for macOS, Windows and Linux are
+built from this repository — see [Desktop app (Electron)](#desktop-app-electron).
 
 ## Run locally
 
@@ -94,6 +93,49 @@ To build for a different base path, set `VITE_BASE`:
 ```bash
 VITE_DEMO=1 VITE_BASE=/ npx vite build
 ```
+
+## Desktop app (Electron)
+
+The console also ships as a native desktop app. `electron/main.js` serves the bundled `dist/` folder
+over a private `app://bundle/` protocol, so the demo adapter, `localStorage`, relative assets and
+`fetch()` work exactly as they do on the web. The window is sandboxed (`nodeIntegration` off,
+`contextIsolation` on, `sandbox` on) and external links open in the system browser.
+
+This desktop app is the **demo console only**. It does not include the device/browsing agent from the
+full prototype, so it does not observe or enforce job-board activity.
+
+```bash
+npm install
+npm run electron:dev      # Vite dev server + Electron window (hot reload)
+npm run electron:start    # production build, then open the app
+npm run electron:build    # installers for the current OS in release/
+```
+
+`electron-builder.yml` defines what is produced:
+
+| Platform | Artifacts |
+|---|---|
+| macOS | `.dmg` + `.zip`, Apple Silicon and Intel |
+| Windows | NSIS installer `.exe` + `.zip` |
+| Linux | `.AppImage` + `.deb` |
+
+### Automated desktop builds
+
+`.github/workflows/desktop.yml` builds every platform on GitHub:
+
+- **push to `main`** — macOS, Windows and Linux installers are uploaded as downloadable artifacts on
+  the run (Actions → *Build desktop apps*).
+- **push a `v*` tag** — the same installers are attached to a GitHub Release.
+- **manual** — run *Build desktop apps* from the Actions tab.
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The builds are **unsigned**: macOS shows a Gatekeeper warning (right-click → **Open** the first time)
+and Windows may show a SmartScreen prompt. Proper signing would need Apple/Windows certificates
+stored as repository secrets; the builds themselves need no secrets.
 
 ## Deploy
 
@@ -114,7 +156,10 @@ In **Settings → Pages**, set **Source** to **GitHub Actions**. No secrets are 
 | `src/demo.ts` | Static API, date shifting, localStorage persistence, install helpers |
 | `public/demo-data.json` | Seeded snapshot: 14 clients, 8 staff, 5 devices, ~300 applications |
 | `public/manifest.webmanifest` + `public/sw.js` | PWA install and offline shell |
+| `electron/main.js` | Electron main process: window, `app://` bundle server, menus, external links |
+| `electron-builder.yml` + `build/icon.png` | Desktop packaging targets and app icon |
 | `.github/workflows/deploy.yml` | GitHub Pages build and deploy |
+| `.github/workflows/desktop.yml` | macOS / Windows / Linux installer builds and release upload |
 
 ## Data, privacy and disclaimer
 

@@ -1,0 +1,58 @@
+appId: com.tnsintl.compass
+productName: TNSI Compass
+copyright: Copyright © 2026 The Next Step International
+
+directories:
+  output: release
+  buildResources: build
+
+# The renderer is fully bundled by Vite, so no node_modules ship with the app.
+files:
+  - dist/**/*
+  - electron/**/*
+  - build/icon.png
+  - package.json
+  - '!**/*.map'
+  - '!node_modules/**/*'
+
+asar: true
+npmRebuild: false
+compression: normal
+artifactName: TNSI-Compass-${version}-${os}-${arch}.${ext}
+
+mac:
+  category: public.app-category.business
+  icon: build/icon.png
+  darkModeSupport: true
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  target:
+    - dmg
+    - zip
+
+dmg:
+  title: ${productName} ${version}
+
+win:
+  icon: build/icon.png
+  target:
+    - nsis
+    - zip
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: TNSI Compass
+  deleteAppDataOnUninstall: false
+
+linux:
+  icon: build/icon.png
+  category: Office
+  maintainer: The Next Step International
+  synopsis: Placement desk console for The Next Step International
+  target:
+    - AppImage
+    - deb
