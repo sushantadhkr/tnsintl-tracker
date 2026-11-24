@@ -1,13 +1,18 @@
 import React from 'react';
 import {
-  BarChart3, Briefcase, Clock3, Compass, Laptop, LayoutDashboard, LogOut,
-  Radio, ScrollText, Search, ShieldCheck, Users, Zap,
+  BarChart3, Briefcase, Clock3, Compass, Globe, Laptop, LayoutDashboard, LogOut,
+  Radio, ScrollText, Search, ShieldCheck, Timer, Users, Zap,
 } from 'lucide-react';
 import { api, getToken, setToken, type User } from './api';
 import { DEMO, promptInstall, resetDemo } from './demo';
+import { syncPolicyFromApi, agentClient } from './agent';
 import { Avatar, Spinner } from './ui';
 import { AppCtx } from './ctx';
+import ApplicationModal, { type ApplicationDraft } from './ApplicationModal';
+import HeaderActions from './HeaderActions';
 import Login from './pages/Login';
+import MyDesk from './pages/MyDesk';
+import DeskBrowser from './pages/DeskBrowser';
 import Overview from './pages/Overview';
 import Employees from './pages/Employees';
 import Clients from './pages/Clients';
@@ -17,9 +22,11 @@ import Devices from './pages/Devices';
 import Reports from './pages/Reports';
 import Audit from './pages/Audit';
 
-type PageKey = 'overview' | 'employees' | 'clients' | 'live' | 'policies' | 'devices' | 'reports' | 'audit';
+type PageKey = 'mydesk' | 'browser' | 'overview' | 'employees' | 'clients' | 'live' | 'policies' | 'devices' | 'reports' | 'audit';
 
 const NAV: { key: PageKey; label: string; icon: React.ElementType; adminOnly?: boolean }[] = [
+  { key: 'mydesk', label: 'My desk', icon: Timer },
+  { key: 'browser', label: 'Desk browser', icon: Globe },
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
   { key: 'employees', label: 'Team', icon: Users },
   { key: 'clients', label: 'Clients', icon: Briefcase },
@@ -34,10 +41,13 @@ export default function App() {
   const [user, setUser] = React.useState<User | null>(null);
   const [booting, setBooting] = React.useState(true);
   const [page, setPage] = React.useState<PageKey>('overview');
+  const [browserUrl, setBrowserUrl] = React.useState('https://www.linkedin.com/jobs/');
   const [tick, setTick] = React.useState(0);
   const [q, setQ] = React.useState('');
   const [live, setLive] = React.useState(false);
   const [installable, setInstallable] = React.useState(false);
+  const [applicationOpen, setApplicationOpen] = React.useState(false);
+  const [applicationDraft, setApplicationDraft] = React.useState<ApplicationDraft | null>(null);
 
   const load = React.useCallback(() => {
     if (!getToken()) { setBooting(false); return; }
@@ -60,6 +70,26 @@ export default function App() {
     window.addEventListener('tnsicompass:logout', onLogout);
     return () => window.removeEventListener('tnsicompass:logout', onLogout);
   }, []);
+
+  // Consultants land on their own workspace; admins land on the desk overview.
+  React.useEffect(() => {
+    if (!user) return;
+    setPage(user.role === 'Employee' || user.role === 'Team Lead' ? 'mydesk' : 'overview');
+    agentClient.identify(user).catch(() => { /* identity is best-effort */ });
+  }, [user?.id]);
+
+  // Keep the on-device browsing policy in step with the console.
+  React.useEffect(() => {
+    if (!user) return;
+    const sync = () => { syncPolicyFromApi().catch(() => { /* best-effort */ }); };
+    sync();
+    const timer = setInterval(sync, 30_000);
+    window.addEventListener('focus', sync);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', sync);
+    };
+  }, [user, tick]);
 
   // Live updates: the server pushes a refresh whenever devices sync.
   React.useEffect(() => {
@@ -91,6 +121,11 @@ export default function App() {
   const signOut = () => {
     setToken(null);
     setUser(null);
+  };
+
+  const fileApplication = (draft?: ApplicationDraft) => {
+    setApplicationDraft(draft ?? null);
+    setApplicationOpen(true);
   };
 
   return (
@@ -154,6 +189,7 @@ export default function App() {
               />
             </label>
             <div className="topbar-right">
+              <HeaderActions onFile={() => fileApplication()} />
               <span className={`sync ${live ? 'on' : ''}`}>
                 <Zap size={13} /> {live ? 'Live sync' : 'Reconnecting…'}
               </span>
@@ -164,7 +200,9 @@ export default function App() {
             </div>
           </header>
 
-          <div className="content">
+          <div className={`content ${page === 'browser' ? 'content-flush' : ''}`}>
+            {page === 'mydesk' && <MyDesk onOpenBrowser={(url) => { setBrowserUrl(url); setPage('browser'); }} onLogApplication={fileApplication} />}
+            {page === 'browser' && <DeskBrowser initialUrl={browserUrl} onClose={() => setPage('mydesk')} />}
             {page === 'overview' && <Overview onOpenEmployee={() => setPage('employees')} goLive={() => setPage('live')} />}
             {page === 'employees' && <Employees query={q} setQuery={setQ} />}
             {page === 'clients' && <Clients />}
@@ -176,6 +214,13 @@ export default function App() {
           </div>
         </main>
       </div>
+
+      <ApplicationModal
+        open={applicationOpen}
+        draft={applicationDraft}
+        onClose={() => setApplicationOpen(false)}
+        onFiled={() => setTick((t) => t + 1)}
+      />
     </AppCtx.Provider>
   );
 }

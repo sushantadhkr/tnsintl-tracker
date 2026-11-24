@@ -1,10 +1,11 @@
 import React from 'react';
 import {
-  Briefcase, Building2, CheckCircle2, Clock3, Download, Inbox,
-  Plus, Search, Timer, X,
+  Briefcase, Building2, CheckCircle2, Clock3, Download, FileText,
+  Inbox, Plus, Search, Timer, X,
 } from 'lucide-react';
 import { api, post, type Application, type ClientRow, type EfficiencyRow } from '../api';
 import { useApp } from '../ctx';
+import CvModal from '../CvModal';
 import { Avatar, Bar, Card, Empty, Modal, Segmented, Spinner, fmtDate, relTime } from '../ui';
 
 type Period = 7 | 14 | 30;
@@ -273,6 +274,7 @@ export default function Clients() {
 
 function ClientDrawer({ id, days, onClose }: { id: number | null; days: number; onClose: () => void }) {
   const [data, setData] = React.useState<{ client: ClientRow; applications: Application[] } | null>(null);
+  const [cvOpen, setCvOpen] = React.useState(false);
   React.useEffect(() => {
     if (!id) return;
     setData(null);
@@ -329,6 +331,33 @@ function ClientDrawer({ id, days, onClose }: { id: number | null; days: number; 
               </div>
             </div>
 
+            {c.cv && (
+              <div className="drawer-section">
+                <h4><FileText size={14} /> CV on file</h4>
+                <div className="cv-card">
+                  <span className="cv-ico"><FileText size={18} /></span>
+                  <div className="cv-card-main">
+                    <strong>{c.cv.fileName}</strong>
+                    <small className="muted">
+                      {c.cv.pages} pages · updated {relTime(c.cv.updatedAt)} · ATS {c.cv.atsScore}/100
+                    </small>
+                    <div className="board-chips" style={{ marginTop: 7 }}>
+                      {c.cv.skills.slice(0, 6).map((skill) => (
+                        <span className="board-chip" key={skill}>{skill}</span>
+                      ))}
+                      {c.cv.skills.length > 6 && <span className="agent-muted-note">+{c.cv.skills.length - 6}</span>}
+                    </div>
+                  </div>
+                  <button className="btn ghost sm" onClick={() => setCvOpen(true)}>
+                    <FileText size={13} /> Preview
+                  </button>
+                </div>
+                <p className="fineprint">
+                  Reviewed against the target role. Skills, experience and work authorization stay with the client record.
+                </p>
+              </div>
+            )}
+
             {trend.length > 0 && (
               <div className="drawer-section">
                 <h4>Applications, last 14 days</h4>
@@ -362,6 +391,8 @@ function ClientDrawer({ id, days, onClose }: { id: number | null; days: number; 
                 ))}
               </div>
             </div>
+
+            {c.cv && <CvModal open={cvOpen} cv={c.cv} client={c} onClose={() => setCvOpen(false)} />}
           </div>
         )}
       </aside>

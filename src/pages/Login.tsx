@@ -2,9 +2,10 @@ import React from 'react';
 import { ArrowRight, Compass, Laptop, ShieldCheck, UserRound } from 'lucide-react';
 import { api, setToken, type User } from '../api';
 import { DEMO } from '../demo';
+import { isDesktop } from '../agent';
 import { Spinner } from '../ui';
 
-const DEMO = [
+const ACCOUNTS = [
   { email: 'aashika@tnsintl.com', label: 'Aashika · Director' },
   { email: 'suman@tnsintl.com', label: 'Suman · Placement Manager' },
   { email: 'prakriti@tnsintl.com', label: 'Prakriti · Senior Consultant' },
@@ -76,7 +77,7 @@ export default function Login({ onDone }: { onDone: (u: User) => void }) {
 
           <div className="demo-accounts">
             <span className="muted small">Quick switch</span>
-            {DEMO.map((d) => (
+            {ACCOUNTS.map((d) => (
               <button type="button" key={d.email} onClick={() => { setEmail(d.email); setPassword('demo1234'); }}>
                 {d.label}
               </button>
@@ -84,7 +85,14 @@ export default function Login({ onDone }: { onDone: (u: User) => void }) {
           </div>
           <p className="fineprint">
             Password for every demo account is <code>demo1234</code>.
-            {DEMO && <> This is a static admin-console demo — no app server, no tracking. Everything you change stays in this browser.</>}
+            {DEMO && (
+              <>
+                {' '}Demo data only — no app server.{' '}
+                {isDesktop
+                  ? 'The desktop agent keeps your check-ins and browsing events on this device.'
+                  : 'Everything you change stays in this browser.'}
+              </>
+            )}
           </p>
         </form>
       </div>

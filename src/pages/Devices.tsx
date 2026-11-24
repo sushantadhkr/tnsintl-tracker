@@ -2,10 +2,12 @@ import React from 'react';
 import { Laptop, MonitorSmartphone, ShieldCheck, ShieldX, Wifi } from 'lucide-react';
 import { api, post } from '../api';
 import { useApp } from '../ctx';
+import { agentClient, isDesktop, useAgent } from '../agent';
 import { Avatar, Card, Empty, Spinner, relTime } from '../ui';
 
 export default function Devices() {
-  const { tick } = useApp();
+  const { tick, user } = useApp();
+  const { data: agentData, refresh: refreshAgent } = useAgent();
   const [data, setData] = React.useState<{ devices: any[]; online: number } | null>(null);
 
   const load = React.useCallback(() => {
@@ -15,9 +17,36 @@ export default function Devices() {
 
   if (!data) return <div className="page-loading"><Spinner /></div>;
 
+  const localDevice = isDesktop && agentData
+    ? {
+        id: agentData.device.id,
+        user_id: user.id,
+        name: agentData.device.name,
+        platform: agentData.device.platform,
+        os_version: agentData.device.osVersion,
+        app_version: agentData.device.appVersion,
+        status: agentData.device.status,
+        registered_at: agentData.device.registeredAt,
+        last_seen_at: agentData.device.lastSeenAt,
+        userName: user.name,
+        color: user.color,
+        local: true,
+      }
+    : null;
+
+  const devices = localDevice
+    ? [localDevice, ...data.devices.filter((d) => d.id !== localDevice.id)]
+    : data.devices;
+  const online = devices.filter((d) => d.status === 'active' && Date.now() - (d.last_seen_at || 0) < 180_000).length;
+
   const act = async (id: string, action: 'revoke' | 'restore') => {
     await post(`/api/devices/${id}/${action}`);
     load();
+  };
+
+  const actLocal = async (status: 'active' | 'revoked') => {
+    await agentClient.setDeviceStatus(status);
+    refreshAgent();
   };
 
   return (
@@ -28,18 +57,18 @@ export default function Devices() {
           <p className="muted">Each consultant installation is a registered device. Revoke one and its desk events stop being accepted.</p>
         </div>
         <div className="row gap8">
-          <span className="pill pill-ok"><Wifi size={13} /> {data.online} online</span>
-          <span className="pill pill-muted">{data.devices.length} registered</span>
+          <span className="pill pill-ok"><Wifi size={13} /> {online} online</span>
+          <span className="pill pill-muted">{devices.length} registered</span>
         </div>
       </div>
 
       <div className="grid-3">
         <Card title="Coverage" subtitle="Registered installations">
           <div className="coverage">
-            <div className="coverage-block"><span>macOS</span><strong>{data.devices.filter((d) => d.platform === 'macOS').length}</strong></div>
-            <div className="coverage-block"><span>Windows</span><strong>{data.devices.filter((d) => d.platform === 'Windows').length}</strong></div>
-            <div className="coverage-block"><span>Linux</span><strong>{data.devices.filter((d) => d.platform === 'Linux').length}</strong></div>
-            <div className="coverage-block"><span>Revoked</span><strong>{data.devices.filter((d) => d.status === 'revoked').length}</strong></div>
+            <div className="coverage-block"><span>macOS</span><strong>{devices.filter((d) => d.platform === 'macOS').length}</strong></div>
+            <div className="coverage-block"><span>Windows</span><strong>{devices.filter((d) => d.platform === 'Windows').length}</strong></div>
+            <div className="coverage-block"><span>Linux</span><strong>{devices.filter((d) => d.platform === 'Linux').length}</strong></div>
+            <div className="coverage-block"><span>Revoked</span><strong>{devices.filter((d) => d.status === 'revoked').length}</strong></div>
           </div>
         </Card>
         <Card title="Trust model" subtitle="How the prototype treats device data">
@@ -59,20 +88,26 @@ export default function Devices() {
       </div>
 
       <Card title="Registered devices" pad={false}>
-        {data.devices.length === 0 && <Empty>No devices registered yet.</Empty>}
+        {devices.length === 0 && <Empty>No devices registered yet.</Empty>}
         <table className="table roomy">
           <thead>
             <tr><th>Device</th><th>Assigned to</th><th>Platform</th><th>Agent</th><th>Status</th><th>Last seen</th><th className="right">Action</th></tr>
           </thead>
           <tbody>
-            {data.devices.map((d) => {
-              const online = d.status === 'active' && Date.now() - (d.last_seen_at || 0) < 180_000;
+            {devices.map((d) => {
+              const isOnline = d.status === 'active' && Date.now() - (d.last_seen_at || 0) < 180_000;
               return (
                 <tr key={d.id}>
                   <td>
                     <div className="cell-person">
                       <span className="device-ico"><Laptop size={16} /></span>
-                      <div><strong>{d.name}</strong><small className="muted">{d.id}</small></div>
+                      <div>
+                        <strong>
+                          {d.name}
+                          {d.local && <span className="pill pill-info tiny device-tag">this device</span>}
+                        </strong>
+                        <small className="muted">{d.id}</small>
+                      </div>
                     </div>
                   </td>
                   <td>
@@ -84,13 +119,17 @@ export default function Devices() {
                   <td className="muted">{d.platform}<small className="muted block">{d.os_version}</small></td>
                   <td className="muted">{d.app_version}</td>
                   <td>
-                    <span className={`pill ${d.status === 'revoked' ? 'pill-danger' : online ? 'pill-ok' : 'pill-muted'}`}>
-                      <i className="dot" /> {d.status === 'revoked' ? 'revoked' : online ? 'online' : 'idle'}
+                    <span className={`pill ${d.status === 'revoked' ? 'pill-danger' : isOnline ? 'pill-ok' : 'pill-muted'}`}>
+                      <i className="dot" /> {d.status === 'revoked' ? 'revoked' : isOnline ? 'online' : 'idle'}
                     </span>
                   </td>
                   <td className="muted">{d.last_seen_at ? relTime(d.last_seen_at) : '—'}</td>
                   <td className="right">
-                    {d.status === 'revoked'
+                    {d.local ? (
+                      d.status === 'revoked'
+                        ? <button className="btn ghost sm" onClick={() => actLocal('active')}>Restore</button>
+                        : <button className="btn danger sm" onClick={() => actLocal('revoked')}>Revoke</button>
+                    ) : d.status === 'revoked'
                       ? <button className="btn ghost sm" onClick={() => act(d.id, 'restore')}>Restore</button>
                       : <button className="btn danger sm" onClick={() => act(d.id, 'revoke')}>Revoke</button>}
                   </td>

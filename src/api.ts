@@ -83,6 +83,21 @@ export type Overview = {
 
 export type Assignee = { id: number; name: string; color: string };
 
+export type ClientCv = {
+  fileName: string;
+  updatedAt: number;
+  pages: number;
+  atsScore: number;
+  summary: string;
+  skills: string[];
+  experience: { role: string; company: string; period: string; highlights: string[] }[];
+  education: { degree: string; school: string; year: string }[];
+  certifications: string[];
+  links: { label: string; url: string }[];
+  languages: string[];
+  workAuthorization: string;
+};
+
 export type ClientRow = {
   id: number;
   name: string;
@@ -107,6 +122,7 @@ export type ClientRow = {
   lastAppliedAt: number | null;
   weeklyApplied: number;
   trend: { day: string; count: number }[];
+  cv?: ClientCv | null;
 };
 
 export type Application = {

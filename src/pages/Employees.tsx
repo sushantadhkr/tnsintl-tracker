@@ -2,7 +2,8 @@ import React from 'react';
 import { Filter, Plus, Search, UserPlus } from 'lucide-react';
 import { api, post, type EmployeeRow } from '../api';
 import { useApp } from '../ctx';
-import { Avatar, Card, Empty, Modal, Segmented, Spinner, StatusPill, fmtHM } from '../ui';
+import { useAgent } from '../agent';
+import { Avatar, Card, Empty, Modal, Segmented, Spinner, StatusPill, fmtHM, fmtClock, useNow } from '../ui';
 import EmployeeDrawer from './EmployeeDrawer';
 
 type Filter = 'all' | 'working' | 'late' | 'absent';
@@ -25,8 +26,42 @@ export default function Employees({ query, setQuery }: { query: string; setQuery
   React.useEffect(load, [load, tick]);
 
   const canManage = user.role === 'Super Admin' || user.role === 'Admin';
+  const { data: agentData } = useAgent();
+  const now = useNow(30_000);
 
-  const filtered = (rows || []).filter((e) => {
+  // The signed-in consultant's row comes from the local agent, not the seed.
+  const rowsView = React.useMemo(() => {
+    if (!rows) return null;
+    const shift = agentData?.shift;
+    if (!shift) return rows;
+    const from = new Date(now).setHours(0, 0, 0, 0);
+    const today = (agentData?.events || []).filter((event) => event.ts >= from);
+    return rows.map((row) => {
+      if (row.email !== user.email) return row;
+      const open = !shift.clockOut;
+      return {
+        ...row,
+        status: (open ? 'working' : 'completed') as EmployeeRow['status'],
+        late: shift.late,
+        clockIn: shift.clockIn,
+        clockOut: shift.clockOut,
+        clockInLabel: fmtClock(shift.clockIn),
+        clockOutLabel: shift.clockOut ? fmtClock(shift.clockOut) : null,
+        workedSeconds: Math.max(0, ((shift.clockOut ?? now) - shift.clockIn) / 1000),
+        blockedAttempts: today.filter((event) => event.type === 'block_attempt').length,
+        applicationsToday: today.filter((event) => event.type === 'application_submitted').length,
+        sites: Array.from(
+          new Set(
+            today
+              .filter((event) => event.type === 'browser_navigation' && event.domain)
+              .map((event) => event.domain as string)
+          )
+        ).map((domain) => ({ domain, seconds: 0, pages: 1 })),
+      };
+    });
+  }, [rows, agentData, user.email, now]);
+
+  const filtered = (rowsView || []).filter((e) => {
     if (team && e.team !== teams.find((t) => t.id === team)?.name) return false;
     if (filter === 'working' && !['working', 'on_break'].includes(e.status)) return false;
     if (filter === 'late' && !e.late) return false;
@@ -38,7 +73,7 @@ export default function Employees({ query, setQuery }: { query: string; setQuery
     return true;
   });
 
-  const totalApps = (rows || []).reduce((s, e) => s + e.applicationsToday, 0);
+  const totalApps = (rowsView || []).reduce((s, e) => s + e.applicationsToday, 0);
 
   return (
     <>

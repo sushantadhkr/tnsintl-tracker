@@ -1,12 +1,14 @@
 import React from 'react';
-import { Ban, Globe, Monitor, MousePointerClick, Radio } from 'lucide-react';
+import { Ban, Briefcase, Globe, Monitor, MousePointerClick, Radio } from 'lucide-react';
 import { api } from '../api';
 import { useApp } from '../ctx';
+import { useAgent } from '../agent';
 import { Avatar, Card, Empty, Spinner, relTime } from '../ui';
 
 const COPY: Record<string, { text: string; icon: React.ElementType; tone: string }> = {
   session_started: { text: 'started a work session', icon: Radio, tone: 'purple' },
   session_ended: { text: 'ended their work session', icon: Radio, tone: 'slate' },
+  application_submitted: { text: 'filed an application', icon: Briefcase, tone: 'green' },
   app_focused: { text: 'switched application', icon: Monitor, tone: 'sky' },
   app_opened: { text: 'opened an application', icon: Monitor, tone: 'sky' },
   browser_navigation: { text: 'navigated to', icon: Globe, tone: 'green' },
@@ -18,7 +20,8 @@ const COPY: Record<string, { text: string; icon: React.ElementType; tone: string
 };
 
 export default function Live() {
-  const { tick } = useApp();
+  const { tick, user } = useApp();
+  const { data: agentData } = useAgent();
   const [data, setData] = React.useState<{ events: any[]; blocked: any[] } | null>(null);
   const [now, setNow] = React.useState(Date.now());
 
@@ -30,6 +33,29 @@ export default function Live() {
     const t = setInterval(() => setNow(Date.now()), 15_000);
     return () => clearInterval(t);
   }, []);
+
+  const local = React.useMemo(() => {
+    const cutoff = Date.now() - 6 * 3600_000;
+    const events = (agentData?.events || [])
+      .filter((e) => e.ts >= cutoff)
+      .map((e) => ({
+        id: e.id,
+        source: 'desktop',
+        type: e.type,
+        ts: e.ts,
+        trust: 'verified',
+        meta: { domain: e.domain, url: e.url, detail: e.detail, board: e.board, employer: e.employer, role: e.role },
+        name: user.name,
+        color: user.color,
+      }));
+    const blocked = (agentData?.events || [])
+      .filter((e) => e.ts >= cutoff && e.type === 'block_attempt')
+      .map((e) => ({ id: 'local-' + e.id, domain: e.domain, ts: e.ts, name: user.name, color: user.color }));
+    return { events, blocked };
+  }, [agentData, user]);
+
+  const events = [...local.events, ...(data?.events || [])].sort((a, b) => b.ts - a.ts).slice(0, 60);
+  const blocked = [...local.blocked, ...(data?.blocked || [])].sort((a, b) => b.ts - a.ts).slice(0, 30);
 
   return (
     <>
@@ -44,9 +70,9 @@ export default function Live() {
       <div className="grid-2-1">
         <Card title="Event stream" subtitle="Last 6 hours · approved job boards, documents and desk tools">
           {!data && <div className="page-loading"><Spinner /></div>}
-          {data && data.events.length === 0 && <Empty>Nothing yet. Start a session from the desktop agent to see the desk come alive.</Empty>}
+          {data && events.length === 0 && <Empty>Nothing yet. Start a session from the desktop agent to see the desk come alive.</Empty>}
           <ul className="feed">
-            {(data?.events || []).map((e) => {
+            {events.map((e) => {
               const c = COPY[e.type] || { text: e.type, icon: Radio, tone: 'slate' };
               const Icon = c.icon;
               const detail = e.meta?.app || e.meta?.domain || e.meta?.device || e.meta?.url || '';
@@ -72,11 +98,11 @@ export default function Live() {
         <div className="stack">
           <Card title="Blocked attempts" subtitle="Stopped by the on-device policy engine" action={<Ban size={15} className="muted" />}>
             {!data && <Spinner />}
-            {data && data.blocked.length === 0 && (
+            {data && blocked.length === 0 && (
               <Empty>No blocked attempts in the last 24 hours.</Empty>
             )}
             <ul className="feed">
-              {(data?.blocked || []).map((b) => (
+              {blocked.map((b) => (
                 <li key={b.id}>
                   <span className="feed-ico red"><Ban size={14} /></span>
                   <div className="feed-main">
