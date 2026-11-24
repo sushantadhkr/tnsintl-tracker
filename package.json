@@ -9,7 +9,7 @@
     "build:demo": "cross-env VITE_DEMO=1 VITE_BASE=/tnsintl-tracker/ vite build",
     "build:desktop": "cross-env VITE_DEMO=1 VITE_BASE=./ vite build",
     "preview": "vite preview",
-    "electron:dev": "concurrently -k -n vite,electron -c cyan,green \"cross-env VITE_DEMO=1 vite --port 5173 --strictPort\" \"wait-on tcp:127.0.0.1:5173 && cross-env ELECTRON_START_URL=http://localhost:5173 electron .\"",
+    "electron:dev": "concurrently -k -n vite,electron -c cyan,green \"cross-env VITE_DEMO=1 vite --port 5173 --strictPort\" \"wait-on http://localhost:5173 && cross-env ELECTRON_START_URL=http://localhost:5173 electron .\"",
     "electron:start": "npm run build:desktop && electron .",
     "electron:build": "npm run build:desktop && electron-builder",
     "electron:build:dir": "npm run build:desktop && electron-builder --dir",
