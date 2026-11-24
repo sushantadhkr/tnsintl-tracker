@@ -38,13 +38,15 @@ It never leaves your device. Use **Reset demo data** in the sidebar to return to
 | `aashika@tnsintl.com` | Super Admin · Operations Director | Everything |
 | `suman@tnsintl.com` | Admin · Placement Manager | Desk operations, clients, policy |
 | `prakriti@tnsintl.com` | Team Lead · Senior Consultant | Team + assigned clients |
-| `nabin@tnsintl.com` | Employee · Career Consultant | Own desk view |
-| `rojina@tnsintl.com` | Employee · Client Success Lead | Own desk view |
-| `bibek@tnsintl.com` | Employee · Applications Specialist | Own desk view |
-| `sabina@tnsintl.com` | Employee · Resume Strategist | Own desk view |
-| `anish@tnsintl.com` | Employee · Quality Assurance | Own desk view |
+| `nabin@tnsintl.com` | Employee · Career Consultant | Admin console preview |
+| `rojina@tnsintl.com` | Employee · Client Success Lead | Admin console preview |
+| `bibek@tnsintl.com` | Employee · Applications Specialist | Admin console preview |
+| `sabina@tnsintl.com` | Employee · Resume Strategist | Admin console preview |
+| `anish@tnsintl.com` | Employee · Quality Assurance | Admin console preview |
 
-All accounts use the password **`demo1234`**.
+All accounts use the password **`demo1234`**. The static build is the **admin console**: role-based
+data scoping is enforced by the full API and desktop agent, not by this browser-only preview, so every
+account can explore the whole desk.
 
 ## How the serverless demo works
 

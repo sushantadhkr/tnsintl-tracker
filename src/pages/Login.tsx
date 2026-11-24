@@ -84,7 +84,7 @@ export default function Login({ onDone }: { onDone: (u: User) => void }) {
           </div>
           <p className="fineprint">
             Password for every demo account is <code>demo1234</code>.
-            {DEMO && <> This is a static demo — no server, no tracking. Everything you change stays in this browser.</>}
+            {DEMO && <> This is a static admin-console demo — no app server, no tracking. Everything you change stays in this browser.</>}
           </p>
         </form>
       </div>
