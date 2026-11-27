@@ -84,6 +84,14 @@ export type AgentBootstrap = {
   now: number;
 };
 
+export type BrowserTab = {
+  id: string;
+  url: string;
+  title: string;
+  loading: boolean;
+  active: boolean;
+};
+
 export type BrowserState = {
   url: string;
   title: string;
@@ -91,6 +99,7 @@ export type BrowserState = {
   canGoBack: boolean;
   canGoForward: boolean;
   visible: boolean;
+  tabs: BrowserTab[];
 };
 
 export type BlockedInfo = {
@@ -117,6 +126,9 @@ export type AgentClient = {
     open: (url: string) => Promise<void>;
     close: () => Promise<void>;
     navigate: (url: string) => Promise<void>;
+    newTab: (url?: string) => Promise<string | null>;
+    closeTab: (id: string) => Promise<void>;
+    selectTab: (id: string) => Promise<void>;
     action: (name: 'back' | 'forward' | 'reload' | 'stop' | 'home') => Promise<void>;
     state: () => Promise<BrowserState | null>;
     visible: (visible: boolean) => void;
@@ -389,6 +401,9 @@ const localClient: AgentClient = {
     open: unavailable,
     close: async () => undefined,
     navigate: unavailable,
+    newTab: unavailable,
+    closeTab: async () => undefined,
+    selectTab: async () => undefined,
     action: unavailable,
     state: async () => null,
     visible: () => undefined,

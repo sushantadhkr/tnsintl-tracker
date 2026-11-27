@@ -171,6 +171,13 @@ function registerAgentIpc() {
   ipcMain.handle('agent:browser-navigate', (_event, url) => {
     deskBrowser?.navigate(url);
   });
+  ipcMain.handle('agent:browser-new-tab', (_event, url) => (deskBrowser ? deskBrowser.newTab(url) : null));
+  ipcMain.handle('agent:browser-close-tab', (_event, id) => {
+    if (deskBrowser && id) deskBrowser.closeTab(String(id));
+  });
+  ipcMain.handle('agent:browser-select-tab', (_event, id) => {
+    if (deskBrowser && id) deskBrowser.selectTab(String(id));
+  });
   ipcMain.handle('agent:browser-action', (_event, name) => {
     if (!deskBrowser) return;
     if (name === 'back') deskBrowser.back();
@@ -194,6 +201,41 @@ function buildMenu() {
       { role: 'appMenu' },
       { role: 'editMenu' },
       { role: 'viewMenu' },
+      {
+        label: 'Tabs',
+        submenu: [
+          {
+            label: 'New Tab',
+            accelerator: 'CmdOrCtrl+T',
+            click: () => {
+              if (deskBrowser?.visible) deskBrowser.newTab();
+            },
+          },
+          {
+            label: 'Close Tab',
+            accelerator: 'CmdOrCtrl+W',
+            click: (_item, win) => {
+              if (deskBrowser?.visible) deskBrowser.closeActiveTab();
+              else win?.close();
+            },
+          },
+          { type: 'separator' },
+          {
+            label: 'Next Tab',
+            accelerator: 'Ctrl+Tab',
+            click: () => {
+              if (deskBrowser?.visible) deskBrowser.cycleTab(1);
+            },
+          },
+          {
+            label: 'Previous Tab',
+            accelerator: 'Ctrl+Shift+Tab',
+            click: () => {
+              if (deskBrowser?.visible) deskBrowser.cycleTab(-1);
+            },
+          },
+        ],
+      },
       { role: 'windowMenu' },
     ])
   );
@@ -243,14 +285,20 @@ function createWindow() {
   });
 
   if (SMOKE_TEST) {
+    /* A live WebContentsView can keep the process alive after app.exit(). */
+    const finishSmoke = (code) => {
+      try { deskBrowser?.destroy(); } catch { /* ignore */ }
+      app.exit(code);
+      setTimeout(() => process.exit(code), 1500);
+    };
     const bail = setTimeout(() => {
       console.error('[smoke] timed out');
-      app.exit(1);
+      finishSmoke(1);
     }, 30000);
     win.webContents.once('did-fail-load', (_event, code, description, url) => {
       clearTimeout(bail);
       console.error(`[smoke] failed to load ${url}: ${code} ${description}`);
-      app.exit(1);
+      finishSmoke(1);
     });
     win.webContents.once('did-finish-load', async () => {
       try {

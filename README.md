@@ -126,6 +126,9 @@ The desktop build is also the **placement agent**. It adds a *My desk* workspace
   (main frame, redirect, popup) are matched against the browsing policy before they leave the machine;
   requests to blocked domains are refused at any depth. Allowlist matching includes subdomains; the
   block list always wins. Assets needed to render an approved page are allowed so job boards work.
+- **Tabbed browsing** — open several approved boards at once with the tab strip or a new-tab page,
+  switch tabs, and close them with the tab's ×. `⌘T` / `Ctrl+T` opens a tab, `⌘W` / `Ctrl+W` closes
+  the active one, and `Ctrl+Tab` cycles. Popups and `target=_blank` links open in a new tab.
 - **Activity capture** — session start/stop, breaks, job-board navigations, filed applications and
   blocked attempts are recorded with timestamps. Downloads are disabled. No keystrokes, screenshots,
   page contents or passwords are captured.

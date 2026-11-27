@@ -1,9 +1,10 @@
 import React from 'react';
 import {
-  ArrowLeft, ArrowRight, Ban, ExternalLink, Globe2, Home, RotateCw, ShieldCheck, X,
+  ArrowLeft, ArrowRight, Ban, ExternalLink, Globe2, Home, Plus, RotateCw, ShieldCheck, X,
 } from 'lucide-react';
 import {
-  agentClient, isDesktop, syncPolicyFromApi, useAgent, type BlockedInfo, type BrowserState,
+  agentClient, isDesktop, syncPolicyFromApi, useAgent,
+  type BlockedInfo, type BrowserState, type BrowserTab,
 } from '../agent';
 import { Empty } from '../ui';
 
@@ -16,10 +17,23 @@ function normalize(value: string, fallback: string) {
   return `https://${trimmed}`;
 }
 
+function tabLabel(tab: BrowserTab) {
+  if (tab.title) return tab.title;
+  if (!tab.url || tab.url === 'about:blank') return 'New tab';
+  try {
+    return new URL(tab.url).hostname.replace(/^www\./, '');
+  } catch {
+    return tab.url;
+  }
+}
+
 export default function DeskBrowser({ initialUrl, onClose }: { initialUrl: string; onClose: () => void }) {
   const { data } = useAgent();
   const policy = data?.policy ?? null;
   const holder = React.useRef<HTMLDivElement>(null);
+  const addressRef = React.useRef<HTMLInputElement>(null);
+  const addressKey = React.useRef('');
+  const focusNewTab = React.useRef(false);
   const [state, setState] = React.useState<BrowserState | null>(null);
   const [address, setAddress] = React.useState(initialUrl);
   const [blocked, setBlocked] = React.useState<BlockedInfo | null>(null);
@@ -43,7 +57,19 @@ export default function DeskBrowser({ initialUrl, onClose }: { initialUrl: strin
 
     const offState = agentClient.browser.onState((next) => {
       setState(next);
-      if (next.url && next.url !== 'about:blank') setAddress(next.url);
+      const active = next.tabs?.find((tab) => tab.active);
+      const key = `${active?.id || ''}|${active?.url || ''}`;
+      /* Only rewrite the address when the active tab or its URL changes, so a
+       * background tab's title/loading event cannot clobber what is being typed. */
+      if (addressKey.current !== key) {
+        addressKey.current = key;
+        const url = active?.url || '';
+        setAddress(url && url !== 'about:blank' ? url : '');
+      }
+      if (focusNewTab.current && active && (!active.url || active.url === 'about:blank')) {
+        focusNewTab.current = false;
+        requestAnimationFrame(() => addressRef.current?.focus());
+      }
     });
     const offBlocked = agentClient.browser.onBlocked((info) => {
       setBlocked(info);
@@ -84,7 +110,51 @@ export default function DeskBrowser({ initialUrl, onClose }: { initialUrl: strin
 
   React.useEffect(() => {
     syncBounds();
-  }, [blocked, error, syncBounds]);
+  }, [blocked, error, state?.tabs.length, syncBounds]);
+
+  const openTab = (url?: string) => {
+    setBlocked(null);
+    setError(null);
+    if (!url) focusNewTab.current = true;
+    agentClient.browser.newTab(url);
+  };
+
+  const closeTab = (id: string) => {
+    setBlocked(null);
+    agentClient.browser.closeTab(id);
+  };
+
+  const selectTab = (id: string) => {
+    setBlocked(null);
+    agentClient.browser.selectTab(id);
+  };
+
+  /* Windows/Linux have no native menu, so tab shortcuts live in the renderer.
+   * macOS gets them from the application menu (Cmd+T / Cmd+W / Ctrl+Tab). */
+  React.useEffect(() => {
+    if (!isDesktop || /Mac|iPhone|iPad/i.test(navigator.platform || '')) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (!event.ctrlKey || event.metaKey || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (key === 't' && !event.shiftKey) {
+        event.preventDefault();
+        openTab();
+      } else if (key === 'w' && !event.shiftKey) {
+        event.preventDefault();
+        const active = state?.tabs?.find((tab) => tab.active);
+        if (active) closeTab(active.id);
+      } else if (key === 'tab') {
+        const tabs = state?.tabs || [];
+        if (tabs.length < 2) return;
+        event.preventDefault();
+        const index = tabs.findIndex((tab) => tab.active);
+        const next = tabs[(index + (event.shiftKey ? -1 : 1) + tabs.length) % tabs.length];
+        if (next) selectTab(next.id);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [state]);
 
   const go = (event: React.FormEvent) => {
     event.preventDefault();
@@ -96,7 +166,16 @@ export default function DeskBrowser({ initialUrl, onClose }: { initialUrl: strin
     if (state?.url) agentClient.openExternal(state.url);
   };
 
+  const goTo = (domain: string) => {
+    setBlocked(null);
+    setAddress(`https://${domain}`);
+    agentClient.browser.navigate(`https://${domain}`);
+  };
+
   const boards = policy?.allow?.slice(0, 12) || [];
+  const tabs = state?.tabs || [];
+  const activeTab = tabs.find((tab) => tab.active) || null;
+  const newTabOpen = !activeTab || !activeTab.url || activeTab.url === 'about:blank';
 
   return (
     <>
@@ -118,6 +197,43 @@ export default function DeskBrowser({ initialUrl, onClose }: { initialUrl: strin
       </div>
 
       <div className="desk-browser">
+        <div className="browser-tabs" role="tablist" aria-label="Browser tabs">
+          {tabs.map((tab) => (
+            <div
+              key={tab.id}
+              className={`browser-tab ${tab.active ? 'active' : ''}`}
+              role="tab"
+              aria-selected={tab.active}
+              tabIndex={0}
+              onClick={() => selectTab(tab.id)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  selectTab(tab.id);
+                }
+              }}
+              title={tab.url || 'New tab'}
+            >
+              {tab.loading ? <span className="spinner" /> : <Globe2 size={11} className="browser-tab-icon" />}
+              <span className="browser-tab-title">{tabLabel(tab)}</span>
+              <button
+                className="browser-tab-close"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  closeTab(tab.id);
+                }}
+                title="Close tab"
+                aria-label={`Close ${tabLabel(tab)}`}
+              >
+                <X size={11} />
+              </button>
+            </div>
+          ))}
+          <button className="browser-tab-new" onClick={() => openTab()} title="New tab" aria-label="New tab">
+            <Plus size={14} />
+          </button>
+        </div>
+
         <div className="browser-bar">
           <button className="icon-btn" onClick={() => agentClient.browser.action('back')} disabled={!state?.canGoBack} title="Back">
             <ArrowLeft size={15} />
@@ -135,6 +251,7 @@ export default function DeskBrowser({ initialUrl, onClose }: { initialUrl: strin
           <form className="addr" onSubmit={go}>
             <Globe2 size={13} />
             <input
+              ref={addressRef}
               value={address}
               onChange={(event) => setAddress(event.target.value)}
               spellCheck={false}
@@ -144,6 +261,9 @@ export default function DeskBrowser({ initialUrl, onClose }: { initialUrl: strin
             {state?.loading && <span className="spinner" />}
           </form>
 
+          <button className="icon-btn" onClick={() => openTab()} title="New tab">
+            <Plus size={16} />
+          </button>
           <button className="icon-btn" onClick={openInBrowser} title="Open in your default browser">
             <ExternalLink size={15} />
           </button>
@@ -179,19 +299,25 @@ export default function DeskBrowser({ initialUrl, onClose }: { initialUrl: strin
               <a href={DOWNLOAD_URL} target="_blank" rel="noreferrer">Download the installer</a> to use it.
             </Empty>
           )}
+          {isDesktop && newTabOpen && (
+            <div className="browser-newtab">
+              <span className="browser-newtab-mark"><Globe2 size={20} /></span>
+              <h3>New tab</h3>
+              <p className="muted">Type an approved address above, or open one of the desk's job boards.</p>
+              <div className="board-chips">
+                {boards.slice(0, 10).map((domain) => (
+                  <button className="board-chip" key={domain} onClick={() => goTo(domain)}>
+                    {domain}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="browser-boards">
           {boards.map((domain) => (
-            <button
-              className="board-chip"
-              key={domain}
-              onClick={() => {
-                setBlocked(null);
-                setAddress(`https://${domain}`);
-                agentClient.browser.navigate(`https://${domain}`);
-              }}
-            >
+            <button className="board-chip" key={domain} onClick={() => goTo(domain)}>
               {domain}
             </button>
           ))}
