@@ -1,6 +1,6 @@
 {
   "name": "tnsintl-tracker",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "TNSI Compass — static placement-desk demo for The Next Step International",
   "main": "electron/main.js",
   "scripts": {

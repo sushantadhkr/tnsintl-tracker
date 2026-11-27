@@ -167,7 +167,7 @@ function freshLocal(): LocalState {
       name: 'Browser preview',
       platform: 'Web',
       osVersion: 'Browser',
-      appVersion: '1.1.0',
+      appVersion: '1.2.0',
       status: 'active',
       registeredAt: now,
       lastSeenAt: now,
@@ -265,7 +265,7 @@ const localClient: AgentClient = {
       breakStartedAt: openBreak ? openBreak.start : null,
       breakSecondsToday: localBreakSecondsToday(state),
       platform: 'web',
-      appVersion: '1.1.0',
+      appVersion: '1.2.0',
       now: Date.now(),
     };
   },

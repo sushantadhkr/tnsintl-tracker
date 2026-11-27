@@ -166,8 +166,8 @@ npm run electron:build    # installers for the current OS in release/
 - **manual** — run *Build desktop apps* from the Actions tab.
 
 ```bash
-git tag v1.1.0
-git push origin v1.1.0
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
 The builds are **unsigned**: macOS shows a Gatekeeper warning (right-click → **Open** the first time)
