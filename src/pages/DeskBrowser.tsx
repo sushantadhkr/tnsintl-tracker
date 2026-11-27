@@ -113,6 +113,7 @@ export default function DeskBrowser({ initialUrl, onClose }: { initialUrl: strin
   }, [blocked, error, state?.tabs.length, syncBounds]);
 
   const openTab = (url?: string) => {
+    if (!isDesktop) return;
     setBlocked(null);
     setError(null);
     if (!url) focusNewTab.current = true;
@@ -120,11 +121,13 @@ export default function DeskBrowser({ initialUrl, onClose }: { initialUrl: strin
   };
 
   const closeTab = (id: string) => {
+    if (!isDesktop) return;
     setBlocked(null);
     agentClient.browser.closeTab(id);
   };
 
   const selectTab = (id: string) => {
+    if (!isDesktop) return;
     setBlocked(null);
     agentClient.browser.selectTab(id);
   };
@@ -158,6 +161,7 @@ export default function DeskBrowser({ initialUrl, onClose }: { initialUrl: strin
 
   const go = (event: React.FormEvent) => {
     event.preventDefault();
+    if (!isDesktop) return;
     setBlocked(null);
     agentClient.browser.navigate(normalize(address, initialUrl));
   };
@@ -167,6 +171,7 @@ export default function DeskBrowser({ initialUrl, onClose }: { initialUrl: strin
   };
 
   const goTo = (domain: string) => {
+    if (!isDesktop) return;
     setBlocked(null);
     setAddress(`https://${domain}`);
     agentClient.browser.navigate(`https://${domain}`);
@@ -229,9 +234,17 @@ export default function DeskBrowser({ initialUrl, onClose }: { initialUrl: strin
               </button>
             </div>
           ))}
-          <button className="browser-tab-new" onClick={() => openTab()} title="New tab" aria-label="New tab">
-            <Plus size={14} />
-          </button>
+          {!isDesktop && (
+            <div className="browser-tab active" role="tab" aria-selected="true">
+              <Globe2 size={11} className="browser-tab-icon" />
+              <span className="browser-tab-title">Desk browser</span>
+            </div>
+          )}
+          {isDesktop && (
+            <button className="browser-tab-new" onClick={() => openTab()} title="New tab" aria-label="New tab">
+              <Plus size={14} />
+            </button>
+          )}
         </div>
 
         <div className="browser-bar">
@@ -261,9 +274,11 @@ export default function DeskBrowser({ initialUrl, onClose }: { initialUrl: strin
             {state?.loading && <span className="spinner" />}
           </form>
 
-          <button className="icon-btn" onClick={() => openTab()} title="New tab">
-            <Plus size={16} />
-          </button>
+          {isDesktop && (
+            <button className="icon-btn" onClick={() => openTab()} title="New tab">
+              <Plus size={16} />
+            </button>
+          )}
           <button className="icon-btn" onClick={openInBrowser} title="Open in your default browser">
             <ExternalLink size={15} />
           </button>
